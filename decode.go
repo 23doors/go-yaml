@@ -1086,6 +1086,8 @@ func (d *Decoder) decodeStruct(ctx context.Context, dst reflect.Value, src ast.N
 						return errors.ErrSyntax(fmt.Sprintf("%s", err), node.GetToken())
 					}
 				}
+
+				return err
 			}
 		}
 	}
