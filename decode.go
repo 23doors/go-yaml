@@ -1086,9 +1086,31 @@ func (d *Decoder) decodeStruct(ctx context.Context, dst reflect.Value, src ast.N
 						return errors.ErrSyntax(fmt.Sprintf("%s", err), node.GetToken())
 					}
 				}
+			} else if ev.Type().Kind() == reflect.Map {
+				for _, k := range ev.MapKeys() {
+					if k.Type().Kind() != reflect.String {
+						continue
+					}
 
-				return err
+					structField, exists := structFieldMap[k.String()]
+					if !exists {
+						node, exists := keyToNodeMap[k.String()]
+						if exists {
+							return errors.ErrSyntax(fmt.Sprintf("%s", err), node.GetToken())
+						}
+
+						continue
+					}
+
+					node, exists := keyToNodeMap[structField.RenderName]
+					if exists {
+						return errors.ErrSyntax(fmt.Sprintf("%s", err), node.GetToken())
+					}
+				}
 			}
+
+			return err
+
 		}
 	}
 	return nil
