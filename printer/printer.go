@@ -346,7 +346,13 @@ func (p *Printer) PrintErrorToken(tk *token.Token, isColored bool) string {
 
 	beforeSource := p.PrintTokens(beforeTokens)
 	prefixSpaceNum := len(fmt.Sprintf("  %2d | ", curLine))
-	annotateLine := strings.Repeat(" ", prefixSpaceNum+errToken.Position.Column-1) + "^"
+
+	pos := errToken.Position.Column
+	if errToken.Type == token.MappingValueType {
+		pos = errToken.Prev.Position.Column
+	}
+
+	annotateLine := strings.Repeat(" ", prefixSpaceNum+pos-1) + "^"
 	afterSource := p.PrintTokens(afterTokens)
 	return fmt.Sprintf("%s\n%s\n%s", beforeSource, annotateLine, afterSource)
 }

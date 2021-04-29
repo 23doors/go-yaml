@@ -67,45 +67,45 @@ const (
 func (t NodeType) String() string {
 	switch t {
 	case UnknownNodeType:
-		return "UnknownNode"
+		return "unknown node"
 	case DocumentType:
-		return "Document"
+		return "document"
 	case NullType:
-		return "Null"
+		return "null"
 	case BoolType:
-		return "Bool"
+		return "bool"
 	case IntegerType:
-		return "Integer"
+		return "integer"
 	case FloatType:
-		return "Float"
+		return "float"
 	case InfinityType:
-		return "Infinity"
+		return "infinity"
 	case NanType:
-		return "Nan"
+		return "NaN"
 	case StringType:
-		return "String"
+		return "string"
 	case MergeKeyType:
-		return "MergeKey"
+		return "merge key"
 	case LiteralType:
-		return "Literal"
+		return "literal"
 	case MappingType:
-		return "Mapping"
+		return "mapping"
 	case MappingKeyType:
-		return "MappingKey"
+		return "mapping key"
 	case MappingValueType:
-		return "MappingValue"
+		return "mapping value"
 	case SequenceType:
-		return "Sequence"
+		return "sequence"
 	case AnchorType:
-		return "Anchor"
+		return "anchor"
 	case AliasType:
-		return "Alias"
+		return "alias"
 	case DirectiveType:
-		return "Directive"
+		return "directive"
 	case TagType:
-		return "Tag"
+		return "tag"
 	case CommentType:
-		return "Comment"
+		return "comment"
 	}
 	return ""
 }

@@ -2,6 +2,7 @@ package yaml
 
 import (
 	"github.com/goccy/go-yaml/ast"
+	"github.com/goccy/go-yaml/internal/errors"
 	"golang.org/x/xerrors"
 )
 
@@ -11,6 +12,14 @@ var (
 	ErrInvalidPathString = xerrors.New("invalid path string")
 	ErrNotFoundNode      = xerrors.New("node not found")
 )
+
+func SetDefaultColorize(colorize bool) {
+	errors.SetDefaultColorize(colorize)
+}
+
+func SetDefaultIncludeSource(includeSource bool) {
+	errors.SetDefaultIncludeSource(includeSource)
+}
 
 // IsInvalidQueryError whether err is ErrInvalidQuery or not.
 func IsInvalidQueryError(err error) bool {

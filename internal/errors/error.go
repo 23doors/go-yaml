@@ -9,7 +9,7 @@ import (
 	"golang.org/x/xerrors"
 )
 
-const (
+var (
 	defaultColorize      = false
 	defaultIncludeSource = true
 )
@@ -17,6 +17,14 @@ const (
 var (
 	ErrDecodeRequiredPointerType = xerrors.New("required pointer type value")
 )
+
+func SetDefaultColorize(colorize bool) {
+	defaultColorize = colorize
+}
+
+func SetDefaultIncludeSource(includeSource bool) {
+	defaultIncludeSource = includeSource
+}
 
 // Wrapf wrap error for stack trace
 func Wrapf(err error, msg string, args ...interface{}) error {
