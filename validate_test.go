@@ -39,13 +39,21 @@ func TestStructValidator(t *testing.T) {
 			}{},
 		},
 		{
-			TestName: "Test Simple Validation with missing required field",
+			TestName: "Test Missing Required Field",
 			YAMLContent: `---
-- name: john`,
-			ExpectedErr: `Key: 'Age' Error:Field validation for 'Age' failed on the 'required' tag`,
+- name: john
+  age: 20
+- age: 10`,
+			ExpectedErr: `[4:1] Key: 'Name' Error:Field validation for 'Name' failed on the 'required' tag
+   1 | ---
+   2 | - name: john
+   3 |   age: 20
+>  4 | - age: 10
+       ^
+`,
 			Instance: &[]struct {
 				Name string `yaml:"name" validate:"required"`
-				Age  int    `yaml:"age" validate:"required"`
+				Age  int    `yaml:"age" validate:"gte=0,lt=120"`
 			}{},
 		},
 		{
@@ -55,7 +63,13 @@ name: john
 age: 10
 addr:
   number: seven`,
-			ExpectedErr: "Key: 'State' Error:Field validation for 'State' failed on the 'required' tag",
+			ExpectedErr: `[4:5] Key: 'State' Error:Field validation for 'State' failed on the 'required' tag
+   1 | ---
+   2 | name: john
+   3 | age: 10
+>  4 | addr:
+           ^
+   5 |   number: seven`,
 			Instance: &struct {
 				Name string `yaml:"name" validate:"required"`
 				Age  int    `yaml:"age" validate:"gte=0,lt=120"`
