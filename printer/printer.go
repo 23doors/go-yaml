@@ -348,11 +348,17 @@ func (p *Printer) PrintErrorToken(tk *token.Token, isColored bool) string {
 	prefixSpaceNum := len(fmt.Sprintf("  %2d | ", curLine))
 
 	pos := errToken.Position.Column
-	if errToken.Type == token.MappingValueType {
+	if errToken.Type == token.MappingValueType && errToken.Prev != nil && errToken.Prev.Prev != nil && errToken.Prev.Prev.Type == token.SequenceEntryType {
 		pos = errToken.Prev.Position.Column
 	}
 
 	annotateLine := strings.Repeat(" ", prefixSpaceNum+pos-1) + "^"
 	afterSource := p.PrintTokens(afterTokens)
-	return fmt.Sprintf("%s\n%s\n%s", beforeSource, annotateLine, afterSource)
+
+	err := fmt.Sprintf("%s\n%s", beforeSource, annotateLine)
+	if afterSource != "" {
+		err = fmt.Sprintf("%s\n%s", err, afterSource)
+	}
+
+	return err
 }

@@ -451,7 +451,7 @@ d: eeeeeeeeeeeeeeeee
 		},
 		{
 			`
-a: b    
+a: b
   c
 `,
 			`
@@ -460,7 +460,7 @@ a: b c
 		},
 		{
 			`
-a:    
+a:
   b: c
 `,
 			`
@@ -470,7 +470,7 @@ a:
 		},
 		{
 			`
-a: b    
+a: b
 c: d
 `,
 			`
@@ -600,48 +600,49 @@ a:
   e: f
   g: h`,
 			`
-[3:3] unexpected key name
    2 | a:
 >  3 | - b
    4 |   c: d
          ^
    5 |   e: f
-   6 |   g: h`,
+   6 |   g: h
+
+[3:3] unexpected key name`,
 		},
 		{
 			`
 a
 - b: c`,
 			`
-[2:1] unexpected key name
 >  2 | a
    3 | - b: c
        ^
-`,
+
+[2:1] unexpected key name`,
 		},
 		{
 			`%YAML 1.1 {}`,
 			`
-[1:2] unexpected directive value. document not started
 >  1 | %YAML 1.1 {}
         ^
-`,
+
+[1:2] unexpected directive value. document not started`,
 		},
 		{
 			`{invalid`,
 			`
-[1:2] unexpected map
 >  1 | {invalid
         ^
-`,
+
+[1:2] unexpected map`,
 		},
 		{
 			`{ "key": "value" `,
 			`
-[1:1] unterminated flow mapping
 >  1 | { "key": "value"
        ^
-`,
+
+[1:1] unterminated flow mapping`,
 		},
 	}
 	for _, test := range tests {

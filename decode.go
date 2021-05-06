@@ -1066,7 +1066,7 @@ func (d *Decoder) decodeStruct(ctx context.Context, dst reflect.Value, src ast.N
 		}
 	}
 
-	if d.validator != nil && (src.GetToken() == nil || src.GetToken().Position.IndentLevel == 0) {
+	if d.validator != nil {
 		if err := d.validator.Struct(dst.Interface()); err != nil {
 			ev := reflect.ValueOf(err)
 			if ev.Type().Kind() == reflect.Slice {
@@ -1101,6 +1101,10 @@ func (d *Decoder) decodeStruct(ctx context.Context, dst reflect.Value, src ast.N
 						node, exists := keyToNodeMap[k.String()]
 						if exists {
 							return errors.ErrSyntax(fmt.Sprintf("%s", err), node.GetToken())
+						} else if t := src.GetToken(); t != nil && t.Prev != nil && t.Prev.Prev != nil {
+							// A missing required field will not be in the keyToNodeMap
+							// the error needs to be associated with the parent of the source node
+							return errors.ErrSyntax(fmt.Sprintf("%s", err), t.Prev.Prev)
 						}
 
 						continue

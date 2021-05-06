@@ -56,8 +56,7 @@ alias: *x
    5 |  cccc
    6 |  dddd
    7 |  eeee
-       ^
-`
+       ^`
 		if actual != expect {
 			t.Fatalf("unexpected output: expect:[%s]\n actual:[%s]", expect, actual)
 		}
@@ -108,6 +107,8 @@ a:
 		var p printer.Printer
 		actual := "\n" + p.PrintErrorToken(tokens[12], false)
 		if actual != expect {
+			fmt.Println(actual)
+			fmt.Println(expect)
 			t.Fatalf("unexpected output: expect:[%s]\n actual:[%s]", expect, actual)
 		}
 	})
@@ -204,8 +205,7 @@ text3: hello
    6 |  gggg
    7 |  hhhh"
 >  8 | text3: hello
-       ^
-`,
+       ^`,
 		},
 	}
 	for _, tt := range tc {

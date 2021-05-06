@@ -194,7 +194,7 @@ func (e *syntaxError) FormatError(p xerrors.Printer) error {
 	pos := fmt.Sprintf("[%d:%d] ", e.token.Position.Line, e.token.Position.Column)
 	msg := ""
 	if inclSource {
-		msg += pp.PrintErrorToken(e.token, colored) + "\n"
+		msg += pp.PrintErrorToken(e.token, colored) + "\n\n"
 	}
 	msg += pp.PrintErrorMessage(fmt.Sprintf("%s%s", pos, e.msg), colored)
 	p.Print(msg)

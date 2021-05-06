@@ -1582,11 +1582,11 @@ a: b
 a: c
 `
 	expected := `
-[3:1] duplicate key "a"
    2 | a: b
 >  3 | a: c
        ^
-`
+
+[3:1] duplicate key "a"`
 	t.Run("map", func(t *testing.T) {
 		var v map[string]string
 		err := yaml.NewDecoder(strings.NewReader(yml), yaml.DisallowDuplicateKey()).Decode(&v)
@@ -1746,14 +1746,15 @@ simple: string
 complecated: string
 `
 	err := yaml.NewDecoder(strings.NewReader(src), yaml.DisallowUnknownField()).Decode(&v)
-	fmt.Printf("%v\n", err)
+	fmt.Printf("%v", err)
 
 	// OUTPUT:
-	// [3:1] unknown field "complecated"
 	//        1 | ---
 	//        2 | simple: string
 	//     >  3 | complecated: string
 	//            ^
+	//
+	//     [3:1] unknown field "complecated"
 }
 
 type unmarshalableYAMLStringValue string
