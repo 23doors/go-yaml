@@ -427,7 +427,7 @@ func (n *selectorNode) filter(node ast.Node) (ast.Node, error) {
 			key := value.Key.GetToken().Value
 			if key == n.selector {
 				if n.child == nil {
-					return node, nil
+					return value.Value, nil
 				}
 				filtered, err := n.child.filter(value.Value)
 				if err != nil {
