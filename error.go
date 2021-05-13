@@ -25,6 +25,10 @@ func SetDefaultIncludeSource(includeSource bool) {
 	errors.SetDefaultIncludeSource(includeSource)
 }
 
+func DefaultIncludeSource() bool {
+	return errors.DefaultIncludeSource()
+}
+
 // IsInvalidQueryError whether err is ErrInvalidQuery or not.
 func IsInvalidQueryError(err error) bool {
 	return xerrors.Is(err, ErrInvalidQuery)

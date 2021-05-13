@@ -217,6 +217,10 @@ func FormatError(e error, colored, inclSource bool) string {
 	return e.Error()
 }
 
+func FormatErrorDefault(e error) string {
+	return FormatError(e, DefaultColorize(), DefaultColorize())
+}
+
 // YAMLToJSON convert YAML bytes to JSON.
 func YAMLToJSON(bytes []byte) ([]byte, error) {
 	var v interface{}

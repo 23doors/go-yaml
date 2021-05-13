@@ -30,6 +30,10 @@ func SetDefaultIncludeSource(includeSource bool) {
 	defaultIncludeSource = includeSource
 }
 
+func DefaultIncludeSource() bool {
+	return DefaultIncludeSource()
+}
+
 // Wrapf wrap error for stack trace
 func Wrapf(err error, msg string, args ...interface{}) error {
 	return &wrapError{
