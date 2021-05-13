@@ -17,6 +17,10 @@ func SetDefaultColorize(colorize bool) {
 	errors.SetDefaultColorize(colorize)
 }
 
+func DefaultColorize() bool {
+	return errors.DefaultColorize()
+}
+
 func SetDefaultIncludeSource(includeSource bool) {
 	errors.SetDefaultIncludeSource(includeSource)
 }

@@ -22,6 +22,10 @@ func SetDefaultColorize(colorize bool) {
 	defaultColorize = colorize
 }
 
+func DefaultColorize() bool {
+	return defaultColorize
+}
+
 func SetDefaultIncludeSource(includeSource bool) {
 	defaultIncludeSource = includeSource
 }
