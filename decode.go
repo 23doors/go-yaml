@@ -407,6 +407,10 @@ func errUnknownField(msg string, tk *token.Token) *unknownFieldError {
 	return &unknownFieldError{err: errors.ErrSyntax(msg, tk)}
 }
 
+func errUnexpectedNodeType(actual, expected ast.NodeType, tk *token.Token) error {
+	return errors.ErrSyntax(fmt.Sprintf("%s was used where %s is expected", actual.YAMLName(), expected.YAMLName()), tk)
+}
+
 type duplicateKeyError struct {
 	err error
 }
