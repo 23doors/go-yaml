@@ -7,10 +7,11 @@ import (
 )
 
 var (
-	ErrInvalidQuery      = xerrors.New("invalid query")
-	ErrInvalidPath       = xerrors.New("invalid path instance")
-	ErrInvalidPathString = xerrors.New("invalid path string")
-	ErrNotFoundNode      = xerrors.New("node not found")
+	ErrInvalidQuery               = xerrors.New("invalid query")
+	ErrInvalidPath                = xerrors.New("invalid path instance")
+	ErrInvalidPathString          = xerrors.New("invalid path string")
+	ErrNotFoundNode               = xerrors.New("node not found")
+	ErrUnknownCommentPositionType = xerrors.New("unknown comment position type")
 )
 
 func SetDefaultColorize(colorize bool) {
@@ -27,6 +28,10 @@ func SetDefaultIncludeSource(includeSource bool) {
 
 func DefaultIncludeSource() bool {
 	return errors.DefaultIncludeSource()
+}
+
+func ErrUnsupportedHeadPositionType(node ast.Node) error {
+	return xerrors.Errorf("unsupported comment head position for %s", node.Type())
 }
 
 // IsInvalidQueryError whether err is ErrInvalidQuery or not.
