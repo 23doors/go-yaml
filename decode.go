@@ -281,23 +281,23 @@ func (d *Decoder) getMapNode(node ast.Node) (ast.MapNode, error) {
 		if ok {
 			return mapNode, nil
 		}
-		return nil, errors.ErrSyntax(fmt.Sprintf("%s node found where mapping is expected", anchor.Value.Type()), node.GetToken())
+		return nil, errUnexpectedNodeType(anchor.Value.Type(), ast.MappingType, node.GetToken())
 	}
 	if alias, ok := node.(*ast.AliasNode); ok {
 		aliasName := alias.Value.GetToken().Value
-		newNode := d.anchorNodeMap[aliasName]
-		if newNode == nil {
-			return nil, errors.ErrSyntax(fmt.Sprintf("cannot find anchor by alias name %s", aliasName), node.GetToken())
+		node := d.anchorNodeMap[aliasName]
+		if node == nil {
+			return nil, xerrors.Errorf("cannot find anchor by alias name %s", aliasName)
 		}
-		mapNode, ok := newNode.(ast.MapNode)
+		mapNode, ok := node.(ast.MapNode)
 		if ok {
 			return mapNode, nil
 		}
-		return nil, errors.ErrSyntax(fmt.Sprintf("%s node found where mapping is expected", newNode.Type()), newNode.GetToken())
+		return nil, errUnexpectedNodeType(node.Type(), ast.MappingType, node.GetToken())
 	}
 	mapNode, ok := node.(ast.MapNode)
 	if !ok {
-		return nil, errors.ErrSyntax(fmt.Sprintf("%s node found where mapping is expected", node.Type()), node.GetToken())
+		return nil, errUnexpectedNodeType(node.Type(), ast.MappingType, node.GetToken())
 	}
 	return mapNode, nil
 }
@@ -311,23 +311,24 @@ func (d *Decoder) getArrayNode(node ast.Node) (ast.ArrayNode, error) {
 		if ok {
 			return arrayNode, nil
 		}
-		return nil, errors.ErrSyntax(fmt.Sprintf("%s node found where sequence is expected", anchor.Value.Type()), node.GetToken())
+
+		return nil, errUnexpectedNodeType(anchor.Value.Type(), ast.SequenceType, node.GetToken())
 	}
 	if alias, ok := node.(*ast.AliasNode); ok {
 		aliasName := alias.Value.GetToken().Value
-		newNode := d.anchorNodeMap[aliasName]
-		if newNode == nil {
-			return nil, errors.ErrSyntax(fmt.Sprintf("cannot find anchor by alias name %s", aliasName), node.GetToken())
+		node := d.anchorNodeMap[aliasName]
+		if node == nil {
+			return nil, xerrors.Errorf("cannot find anchor by alias name %s", aliasName)
 		}
-		arrayNode, ok := newNode.(ast.ArrayNode)
+		arrayNode, ok := node.(ast.ArrayNode)
 		if ok {
 			return arrayNode, nil
 		}
-		return nil, errors.ErrSyntax(fmt.Sprintf("%s node found where sequence is expected", newNode.Type()), newNode.GetToken())
+		return nil, errUnexpectedNodeType(node.Type(), ast.SequenceType, node.GetToken())
 	}
 	arrayNode, ok := node.(ast.ArrayNode)
 	if !ok {
-		return nil, errors.ErrSyntax(fmt.Sprintf("%s node found where sequence is expected", node.Type()), node.GetToken())
+		return nil, errUnexpectedNodeType(node.Type(), ast.SequenceType, node.GetToken())
 	}
 	return arrayNode, nil
 }
