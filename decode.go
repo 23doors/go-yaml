@@ -1037,6 +1037,18 @@ func (d *Decoder) decodeStruct(ctx context.Context, dst reflect.Value, src ast.N
 			fieldValue.Set(reflect.Zero(fieldValue.Type()))
 			continue
 		}
+		if fieldValue.Kind() == reflect.Ptr && !fieldValue.IsNil() {
+			if err := d.decodeValue(ctx, fieldValue.Elem(), v); err != nil {
+				if foundErr != nil {
+					continue
+				}
+
+				foundErr = err
+				continue
+			}
+
+			continue
+		}
 		newFieldValue, err := d.createDecodedNewValue(ctx, fieldValue.Type(), v)
 		if err != nil {
 			if foundErr != nil {
