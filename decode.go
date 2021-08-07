@@ -990,7 +990,14 @@ func (d *Decoder) decodeStruct(ctx context.Context, dst reflect.Value, src ast.N
 				key := &ast.StringNode{BaseNode: &ast.BaseNode{}, Value: k}
 				mapNode.Values = append(mapNode.Values, ast.MappingValue(nil, key, v))
 			}
-			newFieldValue, err := d.createDecodedNewValue(ctx, fieldValue.Type(), mapNode)
+
+			var newFieldValue reflect.Value
+
+			if fieldValue.Type().Kind() == reflect.Ptr {
+				newFieldValue, err = d.createDecodedNewValue(ctx, fieldValue.Type(), mapNode)
+			} else {
+				err = d.decodeValue(ctx, fieldValue, mapNode)
+			}
 			if d.disallowUnknownField {
 				var ufe *unknownFieldError
 				if xerrors.As(err, &ufe) {
@@ -1049,6 +1056,7 @@ func (d *Decoder) decodeStruct(ctx context.Context, dst reflect.Value, src ast.N
 
 			continue
 		}
+
 		newFieldValue, err := d.createDecodedNewValue(ctx, fieldValue.Type(), v)
 		if err != nil {
 			if foundErr != nil {
