@@ -997,6 +997,7 @@ func (d *Decoder) decodeStruct(ctx context.Context, dst reflect.Value, src ast.N
 				newFieldValue, err = d.createDecodedNewValue(ctx, fieldValue.Type(), mapNode)
 			} else {
 				err = d.decodeValue(ctx, fieldValue, mapNode)
+				newFieldValue = fieldValue
 			}
 			if d.disallowUnknownField {
 				var ufe *unknownFieldError
