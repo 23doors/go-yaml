@@ -10,6 +10,7 @@ import (
 	"github.com/goccy/go-yaml/internal/errors"
 	"github.com/goccy/go-yaml/parser"
 	"github.com/goccy/go-yaml/printer"
+	"github.com/goccy/go-yaml/token"
 )
 
 // PathString create Path from string
@@ -445,6 +446,10 @@ func (n *selectorNode) filter(node ast.Node) (ast.Node, error) {
 		key := value.Key.GetToken().Value
 		if key == n.selector {
 			if n.child == nil {
+				if value.Value.GetToken().Type == token.NullType {
+					return value.Key, nil
+				}
+
 				return value.Value, nil
 			}
 			filtered, err := n.child.filter(value.Value)
