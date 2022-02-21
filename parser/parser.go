@@ -171,6 +171,11 @@ func (p *parser) parseMapValue(ctx *context, key ast.Node, colonToken *token.Tok
 
 func (p *parser) validateMapValue(ctx *context, key, value ast.Node) error {
 	keyColumn := key.GetToken().Position.Column
+
+	if value == nil {
+		return errors.ErrSyntax("failed to parse mapping value", key.GetToken())
+	}
+
 	valueColumn := value.GetToken().Position.Column
 	if keyColumn != valueColumn {
 		return nil
