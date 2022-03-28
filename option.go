@@ -3,7 +3,7 @@ package yaml
 import (
 	"io"
 
-	"github.com/goccy/go-yaml/ast"
+	"github.com/23doors/go-yaml/ast"
 )
 
 // DecodeOption functional option type for Decoder

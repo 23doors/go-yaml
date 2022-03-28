@@ -1,6 +1,6 @@
 package parser
 
-import "github.com/goccy/go-yaml/token"
+import "github.com/23doors/go-yaml/token"
 
 // context context at parsing
 type context struct {

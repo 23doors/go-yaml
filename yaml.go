@@ -5,8 +5,8 @@ import (
 	"context"
 	"io"
 
-	"github.com/goccy/go-yaml/ast"
-	"github.com/goccy/go-yaml/internal/errors"
+	"github.com/23doors/go-yaml/ast"
+	"github.com/23doors/go-yaml/internal/errors"
 	"golang.org/x/xerrors"
 )
 

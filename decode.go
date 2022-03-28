@@ -15,10 +15,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/goccy/go-yaml/ast"
-	"github.com/goccy/go-yaml/internal/errors"
-	"github.com/goccy/go-yaml/parser"
-	"github.com/goccy/go-yaml/token"
+	"github.com/23doors/go-yaml/ast"
+	"github.com/23doors/go-yaml/internal/errors"
+	"github.com/23doors/go-yaml/parser"
+	"github.com/23doors/go-yaml/token"
 	"golang.org/x/xerrors"
 )
 
@@ -1086,7 +1086,7 @@ func (d *Decoder) decodeStruct(ctx context.Context, dst reflect.Value, src ast.N
 	}
 
 	if remainderField != nil {
-		for key, _ := range unknownFields {
+		for key := range unknownFields {
 			src := keyToNodeMap[key]
 			remainderMap[key] = d.nodeToValue(src)
 		}

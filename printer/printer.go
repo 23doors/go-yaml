@@ -5,9 +5,9 @@ import (
 	"math"
 	"strings"
 
+	"github.com/23doors/go-yaml/ast"
+	"github.com/23doors/go-yaml/token"
 	"github.com/fatih/color"
-	"github.com/goccy/go-yaml/ast"
-	"github.com/goccy/go-yaml/token"
 )
 
 // Property additional property set for each the token
