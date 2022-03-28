@@ -1,3 +1,53 @@
+## v1.9.5 - 2022-01-12
+
+### New Features
+
+* Add UseSingleQuote option ( #265 )
+
+### Fix bugs
+
+* Preserve defaults while decoding nested structs ( #260 )
+* Fix minor typo in decodeInit error ( #264 )
+* Handle empty sequence entries ( #275 )
+* Fix encoding of sequence with multiline string ( #276 )
+* Fix encoding of BytesMarshaler type ( #277 )
+* Fix indentState logic for multi-line value ( #278 )
+
+## v1.9.4 - 2021-10-12
+
+### Fix bugs
+
+* Keep prev/next reference between tokens containing comments when filtering comment tokens ( #257 )
+* Supports escaping reserved keywords in PathBuilder ( #258 )
+
+## v1.9.3 - 2021-09-07
+
+### New Features
+
+* Support encoding and decoding `time.Duration` fields ( #246 )
+* Allow reserved characters for key name in YAMLPath ( #251 )
+* Support getting YAMLPath from ast.Node ( #252 )
+* Support CommentToMap option ( #253 )
+
+### Fix bugs
+
+* Fix encoding nested sequences with `yaml.IndentSequence` ( #241 )
+* Fix error reporting on inline structs in strict mode ( #244, #245 )
+* Fix encoding of large floats ( #247 )
+
+### Improve workflow
+
+* Migrate CI from CircleCI to GitHub Action ( #249 )
+* Add workflow for ycat ( #250 )
+
+## v1.9.2 - 2021-07-26
+
+### Support WithComment option ( #238 )
+
+`yaml.WithComment` is a option for encoding with comment.
+The position where you want to add a comment is represented by YAMLPath, and it is the key of `yaml.CommentMap`.
+Also, you can select `Head` comment or `Line` comment as the comment type.
+
 ## v1.9.1 - 2021-07-20
 
 ### Fix DecodeFromNode ( #237 )

@@ -113,6 +113,14 @@ func IndentSequence(indent bool) EncodeOption {
 	}
 }
 
+// UseSingleQuote determines if single or double quotes should be preferred for strings.
+func UseSingleQuote(sq bool) EncodeOption {
+	return func(e *Encoder) error {
+		e.singleQuote = sq
+		return nil
+	}
+}
+
 // Flow encoding by flow style
 func Flow(isFlowStyle bool) EncodeOption {
 	return func(e *Encoder) error {
@@ -213,6 +221,17 @@ func WithComment(cm CommentMap) EncodeOption {
 			commentMap[path] = v
 		}
 		e.commentMap = commentMap
+		return nil
+	}
+}
+
+// CommentToMap apply the position and content of comments in a YAML document to a CommentMap.
+func CommentToMap(cm CommentMap) DecodeOption {
+	return func(d *Decoder) error {
+		if cm == nil {
+			return ErrInvalidCommentMapValue
+		}
+		d.toCommentMap = cm
 		return nil
 	}
 }

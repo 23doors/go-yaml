@@ -3,12 +3,14 @@ package parser_test
 import (
 	"fmt"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/23doors/go-yaml/ast"
 	"github.com/23doors/go-yaml/lexer"
 	"github.com/23doors/go-yaml/parser"
+	"github.com/23doors/go-yaml/token"
 )
 
 func TestParser(t *testing.T) {
@@ -547,23 +549,40 @@ a: |+
 b: c
 `,
 		},
+		{
+			`
+- key1: val
+  key2:
+    (
+      foo
+      +
+      bar
+    )
+`,
+			`
+- key1: val
+  key2: ( foo + bar )
+`,
+		},
 	}
 
 	for _, test := range tests {
-		tokens := lexer.Tokenize(test.source)
-		f, err := parser.Parse(tokens, 0)
-		if err != nil {
-			t.Fatalf("%+v", err)
-		}
-		var v Visitor
-		for _, doc := range f.Docs {
-			ast.Walk(&v, doc.Body)
-		}
-		expect := fmt.Sprintf("\n%+v\n", f)
-		if test.expect != expect {
-			tokens.Dump()
-			t.Fatalf("unexpected output: [%s] != [%s]", test.expect, expect)
-		}
+		t.Run(test.source, func(t *testing.T) {
+			tokens := lexer.Tokenize(test.source)
+			f, err := parser.Parse(tokens, 0)
+			if err != nil {
+				t.Fatalf("%+v", err)
+			}
+			var v Visitor
+			for _, doc := range f.Docs {
+				ast.Walk(&v, doc.Body)
+			}
+			expect := fmt.Sprintf("\n%+v\n", f)
+			if test.expect != expect {
+				tokens.Dump()
+				t.Fatalf("unexpected output: [%s] != [%s]", test.expect, expect)
+			}
+		})
 	}
 }
 
@@ -643,6 +662,19 @@ a
        ^
 
 [1:1] unterminated flow mapping`,
+		},
+		{
+			`
+a:
+- b: c
+- `,
+			`
+[4:1] empty sequence entry
+   2 | a:
+   3 | - b: c
+>  4 | -
+       ^
+`,
 		},
 	}
 	for _, test := range tests {
@@ -757,6 +789,73 @@ foo: > # comment
 			}
 		})
 	}
+}
+
+func TestNodePath(t *testing.T) {
+	yml := `
+a: # commentA
+  b: # commentB
+    c: foo # commentC
+    d: bar # commentD
+    e: baz # commentE
+  f: # commentF
+    g: hoge # commentG
+  h: # commentH
+   - list1 # comment list1
+   - list2 # comment list2
+   - list3 # comment list3
+  i: fuga # commentI
+j: piyo # commentJ
+k.l.m.n: moge # commentKLMN
+`
+	f, err := parser.ParseBytes([]byte(yml), parser.ParseComments)
+	if err != nil {
+		t.Fatalf("%+v", err)
+	}
+	var capturer pathCapturer
+	for _, doc := range f.Docs {
+		ast.Walk(&capturer, doc.Body)
+	}
+	commentPaths := []string{}
+	for i := 0; i < capturer.capturedNum; i++ {
+		if capturer.orderedTypes[i] == ast.CommentType {
+			commentPaths = append(commentPaths, capturer.orderedPaths[i])
+		}
+	}
+	expectedPaths := []string{
+		"$.a",
+		"$.a.b",
+		"$.a.b.c",
+		"$.a.b.d",
+		"$.a.b.e",
+		"$.a.f",
+		"$.a.f.g",
+		"$.a.h",
+		"$.a.h[0]",
+		"$.a.h[1]",
+		"$.a.h[2]",
+		"$.a.i",
+		"$.j",
+		"$.'k.l.m.n'",
+	}
+	if !reflect.DeepEqual(expectedPaths, commentPaths) {
+		t.Fatalf("failed to get YAMLPath to the comment node:\nexpected[%s]\ngot     [%s]", expectedPaths, commentPaths)
+	}
+}
+
+type pathCapturer struct {
+	capturedNum   int
+	orderedPaths  []string
+	orderedTypes  []ast.NodeType
+	orderedTokens []*token.Token
+}
+
+func (c *pathCapturer) Visit(node ast.Node) ast.Visitor {
+	c.capturedNum++
+	c.orderedPaths = append(c.orderedPaths, node.GetPath())
+	c.orderedTypes = append(c.orderedTypes, node.Type())
+	c.orderedTokens = append(c.orderedTokens, node.GetToken())
+	return c
 }
 
 type Visitor struct {

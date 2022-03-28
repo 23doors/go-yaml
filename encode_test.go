@@ -94,6 +94,11 @@ func TestEncoder(t *testing.T) {
 			nil,
 		},
 		{
+			"v: 1e+06\n",
+			map[string]float64{"v": 1000000},
+			nil,
+		},
+		{
 			"v: .inf\n",
 			map[string]interface{}{"v": math.Inf(0)},
 			nil,
@@ -222,7 +227,7 @@ func TestEncoder(t *testing.T) {
 			nil,
 		},
 		{
-			"v:\n  - A\n  - 1\n  - B:\n    - 2\n    - 3\n",
+			"v:\n  - A\n  - 1\n  - B:\n      - 2\n      - 3\n  - 2\n",
 			map[string]interface{}{
 				"v": []interface{}{
 					"A",
@@ -230,6 +235,7 @@ func TestEncoder(t *testing.T) {
 					map[string][]int{
 						"B": {2, 3},
 					},
+					2,
 				},
 			},
 			[]yaml.EncodeOption{
@@ -575,6 +581,26 @@ func TestEncoder(t *testing.T) {
 				B map[string]interface{} `yaml:"-,remain"`
 			}{A: "value", B: map[string]interface{}{"b": "c", "d": 1, "e": []string{"v"}}},
 			nil,
+		},
+		{
+			"v: 30s\n",
+			map[string]time.Duration{"v": 30 * time.Second},
+			nil,
+		},
+		// Quote style
+		{
+			`v: '\'a\'b'` + "\n",
+			map[string]string{"v": `'a'b`},
+			[]yaml.EncodeOption{
+				yaml.UseSingleQuote(true),
+			},
+		},
+		{
+			`v: "'a'b"` + "\n",
+			map[string]string{"v": `'a'b`},
+			[]yaml.EncodeOption{
+				yaml.UseSingleQuote(false),
+			},
 		},
 	}
 	for _, test := range tests {
@@ -938,14 +964,15 @@ func TestEncoder_JSON(t *testing.T) {
 		F float32
 	}
 	if err := enc.Encode(struct {
-		I      int
-		U      uint
-		S      string
-		F      float64
-		Struct *st
-		Slice  []int
-		Map    map[string]interface{}
-		Time   time.Time
+		I        int
+		U        uint
+		S        string
+		F        float64
+		Struct   *st
+		Slice    []int
+		Map      map[string]interface{}
+		Time     time.Time
+		Duration time.Duration
 	}{
 		I: -10,
 		U: 10,
@@ -962,12 +989,13 @@ func TestEncoder_JSON(t *testing.T) {
 			"b": 1.23,
 			"c": "json",
 		},
-		Time: time.Time{},
+		Time:     time.Time{},
+		Duration: 5 * time.Minute,
 	}); err != nil {
 		t.Fatalf("%+v", err)
 	}
 	expect := `
-{"i": -10, "u": 10, "s": "hello", "f": 3.14, "struct": {"i": 2, "s": "world", "f": 1.23}, "slice": [1, 2, 3, 4, 5], "map": {"a": 1, "b": 1.23, "c": "json"}, "time": "0001-01-01T00:00:00Z"}
+{"i": -10, "u": 10, "s": "hello", "f": 3.14, "struct": {"i": 2, "s": "world", "f": 1.23}, "slice": [1, 2, 3, 4, 5], "map": {"a": 1, "b": 1.23, "c": "json"}, "time": "0001-01-01T00:00:00Z", "duration": "5m0s"}
 `
 	actual := "\n" + buf.String()
 	if expect != actual {
@@ -1283,4 +1311,79 @@ func Example_MarshalYAML() {
 	// b: 100
 	//
 	// field: 13
+}
+
+func TestMarshalIndentWithMultipleText(t *testing.T) {
+	t.Run("depth1", func(t *testing.T) {
+		b, err := yaml.MarshalWithOptions(map[string]interface{}{
+			"key": []string{`line1
+line2
+line3`},
+		}, yaml.Indent(2))
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := string(b)
+		expected := `key:
+- |-
+  line1
+  line2
+  line3
+`
+		if expected != got {
+			t.Fatalf("failed to encode.\nexpected:\n%s\nbut got:\n%s\n", expected, got)
+		}
+	})
+	t.Run("depth2", func(t *testing.T) {
+		b, err := yaml.MarshalWithOptions(map[string]interface{}{
+			"key": map[string]interface{}{
+				"key2": []string{`line1
+line2
+line3`},
+			},
+		}, yaml.Indent(2))
+		if err != nil {
+			t.Fatal(err)
+		}
+		got := string(b)
+		expected := `key:
+  key2:
+  - |-
+    line1
+    line2
+    line3
+`
+		if expected != got {
+			t.Fatalf("failed to encode.\nexpected:\n%s\nbut got:\n%s\n", expected, got)
+		}
+	})
+}
+
+type bytesMarshaler struct{}
+
+func (b *bytesMarshaler) MarshalYAML() ([]byte, error) {
+	return yaml.Marshal(map[string]interface{}{"d": "foo"})
+}
+
+func TestBytesMarshaler(t *testing.T) {
+	b, err := yaml.Marshal(map[string]interface{}{
+		"a": map[string]interface{}{
+			"b": map[string]interface{}{
+				"c": &bytesMarshaler{},
+			},
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := `
+a:
+  b:
+    c:
+      d: foo
+`
+	got := "\n" + string(b)
+	if expected != got {
+		t.Fatalf("failed to encode. expected %s but got %s", expected, got)
+	}
 }

@@ -28,6 +28,7 @@ type Decoder struct {
 	referenceReaders     []io.Reader
 	anchorNodeMap        map[string]ast.Node
 	anchorValueMap       map[string]reflect.Value
+	toCommentMap         CommentMap
 	opts                 []DecodeOption
 	referenceFiles       []string
 	referenceDirs        []string
@@ -115,6 +116,7 @@ func (d *Decoder) mapKeyNodeToString(node ast.Node) string {
 }
 
 func (d *Decoder) setToMapValue(node ast.Node, m map[string]interface{}) {
+	d.setPathToCommentMap(node)
 	switch n := node.(type) {
 	case *ast.MappingValueNode:
 		if n.Key.Type() == ast.MergeKeyType {
@@ -149,7 +151,30 @@ func (d *Decoder) setToOrderedMapValue(node ast.Node, m *MapSlice) {
 	}
 }
 
+func (d *Decoder) setPathToCommentMap(node ast.Node) {
+	if d.toCommentMap == nil {
+		return
+	}
+	commentGroup := node.GetComment()
+	if commentGroup == nil {
+		return
+	}
+	texts := []string{}
+	for _, comment := range commentGroup.Comments {
+		texts = append(texts, comment.Token.Value)
+	}
+	if len(texts) == 0 {
+		return
+	}
+	if len(texts) == 1 {
+		d.toCommentMap[node.GetPath()] = LineComment(texts[0])
+	} else {
+		d.toCommentMap[node.GetPath()] = HeadComment(texts...)
+	}
+}
+
 func (d *Decoder) nodeToValue(node ast.Node) interface{} {
+	d.setPathToCommentMap(node)
 	switch n := node.(type) {
 	case *ast.NullNode:
 		return nil
@@ -515,6 +540,8 @@ func (d *Decoder) canDecodeByUnmarshaler(dst reflect.Value) bool {
 		return true
 	case *time.Time:
 		return true
+	case *time.Duration:
+		return true
 	case encoding.TextUnmarshaler:
 		return true
 	case jsonUnmarshaler:
@@ -574,6 +601,10 @@ func (d *Decoder) decodeByUnmarshaler(ctx context.Context, dst reflect.Value, sr
 
 	if _, ok := iface.(*time.Time); ok {
 		return d.decodeTime(ctx, dst, src)
+	}
+
+	if _, ok := iface.(*time.Duration); ok {
+		return d.decodeDuration(ctx, dst, src)
 	}
 
 	if unmarshaler, isText := iface.(encoding.TextUnmarshaler); isText {
@@ -745,7 +776,9 @@ func (d *Decoder) castToAssignableValue(value reflect.Value, target reflect.Type
 	return value
 }
 
-func (d *Decoder) createDecodedNewValue(ctx context.Context, typ reflect.Type, node ast.Node) (reflect.Value, error) {
+func (d *Decoder) createDecodedNewValue(
+	ctx context.Context, typ reflect.Type, defaultVal reflect.Value, node ast.Node,
+) (reflect.Value, error) {
 	if node.Type() == ast.AliasType {
 		aliasName := node.(*ast.AliasNode).Value.GetToken().Value
 		newValue := d.anchorValueMap[aliasName]
@@ -757,6 +790,12 @@ func (d *Decoder) createDecodedNewValue(ctx context.Context, typ reflect.Type, n
 		return reflect.Zero(typ), nil
 	}
 	newValue := d.createDecodableValue(typ)
+	for defaultVal.Kind() == reflect.Ptr {
+		defaultVal = defaultVal.Elem()
+	}
+	if defaultVal.IsValid() && defaultVal.Type().AssignableTo(newValue.Type()) {
+		newValue.Set(defaultVal)
+	}
 	if err := d.decodeValue(ctx, newValue, node); err != nil {
 		return newValue, errors.Wrapf(err, "failed to decode value")
 	}
@@ -882,7 +921,35 @@ func (d *Decoder) castToTime(src ast.Node) (time.Time, error) {
 func (d *Decoder) decodeTime(ctx context.Context, dst reflect.Value, src ast.Node) error {
 	t, err := d.castToTime(src)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "failed to convert to time")
+	}
+	dst.Set(reflect.ValueOf(t))
+	return nil
+}
+
+func (d *Decoder) castToDuration(src ast.Node) (time.Duration, error) {
+	if src == nil {
+		return 0, nil
+	}
+	v := d.nodeToValue(src)
+	if t, ok := v.(time.Duration); ok {
+		return t, nil
+	}
+	s, ok := v.(string)
+	if !ok {
+		return 0, errTypeMismatch(reflect.TypeOf(time.Duration(0)), reflect.TypeOf(v))
+	}
+	t, err := time.ParseDuration(s)
+	if err != nil {
+		return 0, errors.Wrapf(err, "failed to parse duration")
+	}
+	return t, nil
+}
+
+func (d *Decoder) decodeDuration(ctx context.Context, dst reflect.Value, src ast.Node) error {
+	t, err := d.castToDuration(src)
+	if err != nil {
+		return errors.Wrapf(err, "failed to convert to duration")
 	}
 	dst.Set(reflect.ValueOf(t))
 	return nil
@@ -994,18 +1061,13 @@ func (d *Decoder) decodeStruct(ctx context.Context, dst reflect.Value, src ast.N
 			var newFieldValue reflect.Value
 
 			if fieldValue.Type().Kind() == reflect.Ptr {
-				newFieldValue, err = d.createDecodedNewValue(ctx, fieldValue.Type(), mapNode)
+				newFieldValue, err = d.createDecodedNewValue(ctx, fieldValue.Type(), fieldValue, mapNode)
 			} else {
 				err = d.decodeValue(ctx, fieldValue, mapNode)
 				newFieldValue = fieldValue
 			}
 			if d.disallowUnknownField {
-				var ufe *unknownFieldError
-				if xerrors.As(err, &ufe) {
-					err = nil
-				}
-
-				if err = d.deleteStructKeys(fieldValue.Type(), unknownFields); err != nil {
+				if err := d.deleteStructKeys(fieldValue.Type(), unknownFields); err != nil {
 					return errors.Wrapf(err, "cannot delete struct keys")
 				}
 			}
@@ -1058,7 +1120,7 @@ func (d *Decoder) decodeStruct(ctx context.Context, dst reflect.Value, src ast.N
 			continue
 		}
 
-		newFieldValue, err := d.createDecodedNewValue(ctx, fieldValue.Type(), v)
+		newFieldValue, err := d.createDecodedNewValue(ctx, fieldValue.Type(), fieldValue, v)
 		if err != nil {
 			if foundErr != nil {
 				continue
@@ -1079,7 +1141,9 @@ func (d *Decoder) decodeStruct(ctx context.Context, dst reflect.Value, src ast.N
 		return errors.Wrapf(foundErr, "failed to decode value")
 	}
 
-	if len(unknownFields) != 0 && d.disallowUnknownField {
+	// Ignore unknown fields when parsing an inline struct (recognized by a nil token).
+	// Unknown fields are expected (they could be fields from the parent struct).
+	if len(unknownFields) != 0 && d.disallowUnknownField && src.GetToken() != nil {
 		for key, node := range unknownFields {
 			return errUnknownField(fmt.Sprintf(`unknown field "%s"`, key), node.GetToken())
 		}
@@ -1146,9 +1210,7 @@ func (d *Decoder) decodeStruct(ctx context.Context, dst reflect.Value, src ast.N
 					}
 				}
 			}
-
 			return err
-
 		}
 	}
 	return nil
@@ -1175,7 +1237,7 @@ func (d *Decoder) decodeArray(ctx context.Context, dst reflect.Value, src ast.No
 			// set nil value to pointer
 			arrayValue.Index(idx).Set(reflect.Zero(elemType))
 		} else {
-			dstValue, err := d.createDecodedNewValue(ctx, elemType, v)
+			dstValue, err := d.createDecodedNewValue(ctx, elemType, reflect.Value{}, v)
 			if err != nil {
 				if foundErr == nil {
 					foundErr = err
@@ -1215,7 +1277,7 @@ func (d *Decoder) decodeSlice(ctx context.Context, dst reflect.Value, src ast.No
 			sliceValue = reflect.Append(sliceValue, reflect.Zero(elemType))
 			continue
 		}
-		dstValue, err := d.createDecodedNewValue(ctx, elemType, v)
+		dstValue, err := d.createDecodedNewValue(ctx, elemType, reflect.Value{}, v)
 		if err != nil {
 			if foundErr == nil {
 				foundErr = err
@@ -1357,7 +1419,7 @@ func (d *Decoder) decodeMap(ctx context.Context, dst reflect.Value, src ast.Node
 			mapValue.SetMapIndex(k, reflect.Zero(valueType))
 			continue
 		}
-		dstValue, err := d.createDecodedNewValue(ctx, valueType, value)
+		dstValue, err := d.createDecodedNewValue(ctx, valueType, reflect.Value{}, value)
 		if err != nil {
 			if foundErr == nil {
 				foundErr = err
@@ -1478,7 +1540,11 @@ func (d *Decoder) resolveReference() error {
 }
 
 func (d *Decoder) parse(bytes []byte) (*ast.File, error) {
-	f, err := parser.ParseBytes(bytes, 0)
+	var parseMode parser.Mode
+	if d.toCommentMap != nil {
+		parseMode = parser.ParseComments
+	}
+	f, err := parser.ParseBytes(bytes, parseMode)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to parse yaml")
 	}
@@ -1555,7 +1621,7 @@ func (d *Decoder) DecodeContext(ctx context.Context, v interface{}) error {
 		return nil
 	}
 	if err := d.decodeInit(); err != nil {
-		return errors.Wrapf(err, "failed to decodInit")
+		return errors.Wrapf(err, "failed to decodeInit")
 	}
 	if err := d.decode(ctx, rv); err != nil {
 		if err == io.EOF {

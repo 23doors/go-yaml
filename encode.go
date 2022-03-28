@@ -31,6 +31,7 @@ type Encoder struct {
 	opts                       []EncodeOption
 	indent                     int
 	indentSequence             bool
+	singleQuote                bool
 	isFlowStyle                bool
 	isJSONStyle                bool
 	useJSONMarshaler           bool
@@ -199,6 +200,8 @@ func (e *Encoder) canEncodeByMarshaler(v reflect.Value) bool {
 		return true
 	case time.Time:
 		return true
+	case time.Duration:
+		return true
 	case encoding.TextMarshaler:
 		return true
 	case jsonMarshaler:
@@ -252,6 +255,10 @@ func (e *Encoder) encodeByMarshaler(ctx context.Context, v reflect.Value, column
 
 	if t, ok := iface.(time.Time); ok {
 		return e.encodeTime(t, column), nil
+	}
+
+	if t, ok := iface.(time.Duration); ok {
+		return e.encodeDuration(t, column), nil
 	}
 
 	if marshaler, ok := iface.(encoding.TextMarshaler); ok {
@@ -384,7 +391,7 @@ func (e *Encoder) encodeFloat(v float64, bitSize int) ast.Node {
 		return ast.Nan(token.New(value, value, e.pos(e.column)))
 	}
 	value := strconv.FormatFloat(v, 'g', -1, bitSize)
-	if !strings.Contains(value, ".") {
+	if !strings.Contains(value, ".") && !strings.Contains(value, "e") {
 		// append x.0 suffix to keep float value context
 		value = fmt.Sprintf("%s.0", value)
 	}
@@ -406,7 +413,11 @@ func (e *Encoder) isNeedQuoted(v string) bool {
 
 func (e *Encoder) encodeString(v string, column int) ast.Node {
 	if e.isNeedQuoted(v) {
-		v = strconv.Quote(v)
+		if e.singleQuote {
+			v = quoteWith(v, '\'')
+		} else {
+			v = strconv.Quote(v)
+		}
 	}
 	return ast.String(token.New(v, v, e.pos(column)))
 }
@@ -417,10 +428,10 @@ func (e *Encoder) encodeBool(v bool) ast.Node {
 }
 
 func (e *Encoder) encodeSlice(ctx context.Context, value reflect.Value) (ast.Node, error) {
-	column := e.column
 	if e.indentSequence {
-		column += e.indent
+		e.column += e.indent
 	}
+	column := e.column
 	sequence := ast.Sequence(token.New("-", "-", e.pos(column)), e.isFlowStyle)
 	for i := 0; i < value.Len(); i++ {
 		node, err := e.encodeValue(ctx, value.Index(i), column)
@@ -429,14 +440,17 @@ func (e *Encoder) encodeSlice(ctx context.Context, value reflect.Value) (ast.Nod
 		}
 		sequence.Values = append(sequence.Values, node)
 	}
+	if e.indentSequence {
+		e.column -= e.indent
+	}
 	return sequence, nil
 }
 
 func (e *Encoder) encodeArray(ctx context.Context, value reflect.Value) (ast.Node, error) {
-	column := e.column
 	if e.indentSequence {
-		column += e.indent
+		e.column += e.indent
 	}
+	column := e.column
 	sequence := ast.Sequence(token.New("-", "-", e.pos(column)), e.isFlowStyle)
 	for i := 0; i < value.Len(); i++ {
 		node, err := e.encodeValue(ctx, value.Index(i), column)
@@ -444,6 +458,9 @@ func (e *Encoder) encodeArray(ctx context.Context, value reflect.Value) (ast.Nod
 			return nil, errors.Wrapf(err, "failed to encode value for array")
 		}
 		sequence.Values = append(sequence.Values, node)
+	}
+	if e.indentSequence {
+		e.column -= e.indent
 	}
 	return sequence, nil
 }
@@ -493,8 +510,8 @@ func (e *Encoder) encodeMap(ctx context.Context, value reflect.Value, column int
 		if err != nil {
 			return nil
 		}
-		if m, ok := value.(*ast.MappingNode); ok {
-			m.AddColumn(e.indent)
+		if value.Type() == ast.MappingType || value.Type() == ast.MappingValueType {
+			value.AddColumn(e.indent)
 		}
 		node.Values = append(node.Values, ast.MappingValue(
 			nil,
@@ -554,6 +571,14 @@ func (e *Encoder) isZeroValue(v reflect.Value) bool {
 
 func (e *Encoder) encodeTime(v time.Time, column int) ast.Node {
 	value := v.Format(time.RFC3339Nano)
+	if e.isJSONStyle {
+		value = strconv.Quote(value)
+	}
+	return ast.String(token.New(value, value, e.pos(column)))
+}
+
+func (e *Encoder) encodeDuration(v time.Duration, column int) ast.Node {
+	value := v.String()
 	if e.isJSONStyle {
 		value = strconv.Quote(value)
 	}

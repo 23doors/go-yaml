@@ -1,13 +1,64 @@
 package parser
 
-import "github.com/23doors/go-yaml/token"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/23doors/go-yaml/token"
+)
 
 // context context at parsing
 type context struct {
+	parent *context
 	idx    int
 	size   int
 	tokens token.Tokens
 	mode   Mode
+	path   string
+}
+
+var pathSpecialChars = []string{
+	"$", "*", ".", "[", "]",
+}
+
+func containsPathSpecialChar(path string) bool {
+	for _, char := range pathSpecialChars {
+		if strings.Contains(path, char) {
+			return true
+		}
+	}
+	return false
+}
+
+func normalizePath(path string) string {
+	if containsPathSpecialChar(path) {
+		return fmt.Sprintf("'%s'", path)
+	}
+	return path
+}
+
+func (c *context) withChild(path string) *context {
+	ctx := c.copy()
+	path = normalizePath(path)
+	ctx.path += fmt.Sprintf(".%s", path)
+	return ctx
+}
+
+func (c *context) withIndex(idx uint) *context {
+	ctx := c.copy()
+	ctx.path += fmt.Sprintf("[%d]", idx)
+	return ctx
+}
+
+func (c *context) copy() *context {
+	return &context{
+		parent: c,
+		idx:    c.idx,
+		size:   c.size,
+		tokens: append(token.Tokens{}, c.tokens...),
+		mode:   c.mode,
+		path:   c.path,
+	}
 }
 
 func (c *context) next() bool {
@@ -22,6 +73,9 @@ func (c *context) previousToken() *token.Token {
 }
 
 func (c *context) insertToken(idx int, tk *token.Token) {
+	if c.parent != nil {
+		c.parent.insertToken(idx, tk)
+	}
 	if c.size < idx {
 		return
 	}
@@ -104,6 +158,9 @@ func (c *context) isCurrentCommentToken() bool {
 }
 
 func (c *context) progressIgnoreComment(num int) {
+	if c.parent != nil {
+		c.parent.progressIgnoreComment(num)
+	}
 	if c.size <= c.idx+num {
 		c.idx = c.size
 	} else {
@@ -119,7 +176,7 @@ func (c *context) progress(num int) {
 }
 
 func newContext(tokens token.Tokens, mode Mode) *context {
-	filteredTokens := token.Tokens{}
+	filteredTokens := []*token.Token{}
 	if mode&ParseComments != 0 {
 		filteredTokens = tokens
 	} else {
@@ -127,13 +184,16 @@ func newContext(tokens token.Tokens, mode Mode) *context {
 			if tk.Type == token.CommentType {
 				continue
 			}
-			filteredTokens.Add(tk)
+			// keep prev/next reference between tokens containing comments
+			// https://github.com/goccy/go-yaml/issues/254
+			filteredTokens = append(filteredTokens, tk)
 		}
 	}
 	return &context{
 		idx:    0,
 		size:   len(filteredTokens),
-		tokens: filteredTokens,
+		tokens: token.Tokens(filteredTokens),
 		mode:   mode,
+		path:   "$",
 	}
 }

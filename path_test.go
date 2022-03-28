@@ -13,6 +13,43 @@ import (
 
 func builder() *yaml.PathBuilder { return &yaml.PathBuilder{} }
 
+func TestPathBuilder(t *testing.T) {
+	tests := []struct {
+		expected string
+		path     *yaml.Path
+	}{
+		{
+			expected: `$.a.b[0]`,
+			path:     builder().Root().Child("a").Child("b").Index(0).Build(),
+		},
+		{
+			expected: `$.'a.b'.'c*d'`,
+			path:     builder().Root().Child("a.b").Child("c*d").Build(),
+		},
+		{
+			expected: `$.'a.b-*'.c`,
+			path:     builder().Root().Child("a.b-*").Child("c").Build(),
+		},
+		{
+			expected: `$.'a'.b`,
+			path:     builder().Root().Child("'a'").Child("b").Build(),
+		},
+		{
+			expected: `$.'a.b'.c`,
+			path:     builder().Root().Child("'a.b'").Child("c").Build(),
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.expected, func(t *testing.T) {
+			expected := test.expected
+			got := test.path.String()
+			if expected != got {
+				t.Fatalf("failed to build path. expected:[%q] but got:[%q]", expected, got)
+			}
+		})
+	}
+}
+
 func TestPath(t *testing.T) {
 	yml := `
 store:
@@ -113,6 +150,82 @@ store:
 			})
 		}
 	})
+}
+
+func TestPath_ReservedKeyword(t *testing.T) {
+	tests := []struct {
+		name     string
+		path     string
+		src      string
+		expected interface{}
+		failure  bool
+	}{
+		{
+			name: "quoted path",
+			path: `$.'a.b.c'.foo`,
+			src: `
+a.b.c:
+  foo: bar
+`,
+			expected: "bar",
+		},
+		{
+			name:     "contains quote key",
+			path:     `$.a'b`,
+			src:      `a'b: 10`,
+			expected: uint64(10),
+		},
+		{
+			name:     "escaped quote",
+			path:     `$.'alice\'s age'`,
+			src:      `alice's age: 10`,
+			expected: uint64(10),
+		},
+		{
+			name:     "directly use white space",
+			path:     `$.a  b`,
+			src:      `a  b: 10`,
+			expected: uint64(10),
+		},
+		{
+			name:    "empty quoted key",
+			path:    `$.''`,
+			src:     `a: 10`,
+			failure: true,
+		},
+		{
+			name:    "unterminated quote",
+			path:    `$.'abcd`,
+			src:     `abcd: 10`,
+			failure: true,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			path, err := yaml.PathString(test.path)
+			if test.failure {
+				if err == nil {
+					t.Fatal("expected error")
+				}
+				return
+			} else {
+				if err != nil {
+					t.Fatalf("%+v", err)
+				}
+			}
+			file, err := parser.ParseBytes([]byte(test.src), 0)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var v interface{}
+			if err := path.Read(file, &v); err != nil {
+				t.Fatalf("%+v", err)
+			}
+			if v != test.expected {
+				t.Fatalf("failed to get value. expected:[%v] but got:[%v]", test.expected, v)
+			}
+		})
+	}
 }
 
 func TestPath_Invalid(t *testing.T) {
@@ -487,6 +600,37 @@ b: "hello"
 	// >  2 | a: 1
 	//           ^
 	//    3 | b: "hello"
+}
+
+func ExamplePath_AnnotateSourceWithComment() {
+	yml := `
+# This is my document
+doc:
+  # This comment should be line 3
+  map:
+    # And below should be line 5
+    - value1
+    - value2
+  other: value3
+	`
+	path, err := yaml.PathString("$.doc.map[0]")
+	if err != nil {
+		log.Fatal(err)
+	}
+	msg, err := path.AnnotateSource([]byte(yml), false)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fmt.Println(string(msg))
+	// OUTPUT:
+	//    4 |   # This comment should be line 3
+	//    5 |   map:
+	//    6 |     # And below should be line 5
+	// >  7 |     - value1
+	//              ^
+	//    8 |     - value2
+	//    9 |   other: value3
+	//   10 |
 }
 
 func ExamplePath_PathString() {

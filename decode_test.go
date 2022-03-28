@@ -321,6 +321,14 @@ func TestDecoder(t *testing.T) {
 			"v: 2015-02-24 18:19:39\n",
 			map[string]time.Time{"v": time.Date(2015, 2, 24, 18, 19, 39, 0, time.UTC)},
 		},
+		{
+			"v: 60s\n",
+			map[string]time.Duration{"v": time.Minute},
+		},
+		{
+			"v: -0.5h\n",
+			map[string]time.Duration{"v": -30 * time.Minute},
+		},
 
 		// Single Quoted values.
 		{
@@ -1187,6 +1195,45 @@ func TestDecoder_TypeConversionError(t *testing.T) {
 			}
 		})
 	})
+	t.Run("type conversion for time", func(t *testing.T) {
+		type T struct {
+			A time.Time
+			B time.Duration
+		}
+		t.Run("int to time", func(t *testing.T) {
+			var v T
+			err := yaml.Unmarshal([]byte(`a: 123`), &v)
+			if err == nil {
+				t.Fatal("expected to error")
+			}
+			msg := "cannot unmarshal uint64 into Go struct field T.A of type time.Time"
+			if err.Error() != msg {
+				t.Fatalf("unexpected error message: %s. expect: %s", err.Error(), msg)
+			}
+		})
+		t.Run("string to duration", func(t *testing.T) {
+			var v T
+			err := yaml.Unmarshal([]byte(`b: str`), &v)
+			if err == nil {
+				t.Fatal("expected to error")
+			}
+			msg := `time: invalid duration "str"`
+			if err.Error() != msg {
+				t.Fatalf("unexpected error message: %s. expect: %s", err.Error(), msg)
+			}
+		})
+		t.Run("int to duration", func(t *testing.T) {
+			var v T
+			err := yaml.Unmarshal([]byte(`b: 10`), &v)
+			if err == nil {
+				t.Fatal("expected to error")
+			}
+			msg := "cannot unmarshal uint64 into Go struct field T.B of type time.Duration"
+			if err.Error() != msg {
+				t.Fatalf("unexpected error message: %s. expect: %s", err.Error(), msg)
+			}
+		})
+	})
 }
 
 func TestDecoder_AnchorReferenceDirs(t *testing.T) {
@@ -1454,6 +1501,32 @@ c: true
 	}
 }
 
+func TestDecoder_InlineAndWrongTypeStrict(t *testing.T) {
+	type Base struct {
+		A int
+		B string
+	}
+	yml := `---
+a: notanint
+b: hello
+c: true
+`
+	var v struct {
+		*Base `yaml:",inline"`
+		C     bool
+	}
+	err := yaml.NewDecoder(strings.NewReader(yml), yaml.Strict()).Decode(&v)
+	if err == nil {
+		t.Fatalf("expected error")
+	}
+
+	//TODO: properly check if errors are colored/have source
+	t.Logf("%s", err)
+	t.Logf("%s", yaml.FormatError(err, true, false))
+	t.Logf("%s", yaml.FormatError(err, false, true))
+	t.Logf("%s", yaml.FormatError(err, true, true))
+}
+
 func TestDecoder_InvalidCases(t *testing.T) {
 	const src = `---
 a:
@@ -1619,13 +1692,63 @@ func TestDecoder_DefaultValues(t *testing.T) {
 		A string `yaml:"a"`
 		B string `yaml:"b"`
 		c string // private
+		D struct {
+			E string `yaml:"e"`
+			F struct {
+				G string `yaml:"g"`
+			} `yaml:"f"`
+			H struct {
+				I string `yaml:"i"`
+			} `yaml:",inline"`
+		} `yaml:"d"`
+		J struct {
+			K string `yaml:"k"`
+			L struct {
+				M string `yaml:"m"`
+			} `yaml:"l"`
+			N struct {
+				O string `yaml:"o"`
+			} `yaml:",inline"`
+		} `yaml:",inline"`
+		P struct {
+			Q string `yaml:"q"`
+			R struct {
+				S string `yaml:"s"`
+			} `yaml:"r"`
+			T struct {
+				U string `yaml:"u"`
+			} `yaml:",inline"`
+		} `yaml:"p"`
+		V struct {
+			W string `yaml:"w"`
+			X struct {
+				Y string `yaml:"y"`
+			} `yaml:"x"`
+			Z struct {
+				Ä string `yaml:"ä"`
+			} `yaml:",inline"`
+		} `yaml:",inline"`
 	}{
 		B: "defaultBValue",
 		c: "defaultCValue",
 	}
 
+	v.D.E = "defaultEValue"
+	v.D.F.G = "defaultGValue"
+	v.D.H.I = "defaultIValue"
+	v.J.K = "defaultKValue"
+	v.J.L.M = "defaultMValue"
+	v.J.N.O = "defaultOValue"
+	v.P.R.S = "defaultSValue"
+	v.P.T.U = "defaultUValue"
+	v.V.X.Y = "defaultYValue"
+	v.V.Z.Ä = "defaultÄValue"
+
 	const src = `---
 a: a_value
+p:
+   q: q_value
+w: w_value
 `
 	if err := yaml.NewDecoder(strings.NewReader(src)).Decode(&v); err != nil {
 		t.Fatalf(`parsing should succeed: %s`, err)
@@ -1640,6 +1763,54 @@ a: a_value
 
 	if v.c != "defaultCValue" {
 		t.Fatalf("v.c should be `defaultCValue`, got `%s`", v.c)
+	}
+
+	if v.D.E != "defaultEValue" {
+		t.Fatalf("v.D.E should be `defaultEValue`, got `%s`", v.D.E)
+	}
+
+	if v.D.F.G != "defaultGValue" {
+		t.Fatalf("v.D.F.G should be `defaultGValue`, got `%s`", v.D.F.G)
+	}
+
+	if v.D.H.I != "defaultIValue" {
+		t.Fatalf("v.D.H.I should be `defaultIValue`, got `%s`", v.D.H.I)
+	}
+
+	if v.J.K != "defaultKValue" {
+		t.Fatalf("v.J.K should be `defaultKValue`, got `%s`", v.J.K)
+	}
+
+	if v.J.L.M != "defaultMValue" {
+		t.Fatalf("v.J.L.M should be `defaultMValue`, got `%s`", v.J.L.M)
+	}
+
+	if v.J.N.O != "defaultOValue" {
+		t.Fatalf("v.J.N.O should be `defaultOValue`, got `%s`", v.J.N.O)
+	}
+
+	if v.P.Q != "q_value" {
+		t.Fatalf("v.P.Q should be `q_value`, got `%s`", v.P.Q)
+	}
+
+	if v.P.R.S != "defaultSValue" {
+		t.Fatalf("v.P.R.S should be `defaultSValue`, got `%s`", v.P.R.S)
+	}
+
+	if v.P.T.U != "defaultUValue" {
+		t.Fatalf("v.P.T.U should be `defaultUValue`, got `%s`", v.P.T.U)
+	}
+
+	if v.V.W != "w_value" {
+		t.Fatalf("v.V.W should be `w_value`, got `%s`", v.V.W)
+	}
+
+	if v.V.X.Y != "defaultYValue" {
+		t.Fatalf("v.V.X.Y should be `defaultYValue`, got `%s`", v.V.X.Y)
+	}
+
+	if v.V.Z.Ä != "defaultÄValue" {
+		t.Fatalf("v.V.Z.Ä should be `defaultÄValue`, got `%s`", v.V.Z.Ä)
 	}
 }
 

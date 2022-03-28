@@ -179,6 +179,10 @@ type Node interface {
 	SetComment(*CommentGroupNode) error
 	// Comment returns comment token instance
 	GetComment() *CommentGroupNode
+	// GetPath returns YAMLPath for the current node
+	GetPath() string
+	// SetPath set YAMLPath for the current node
+	SetPath(string)
 	// MarshalYAML
 	MarshalYAML() ([]byte, error)
 	// already read length
@@ -198,6 +202,7 @@ type ScalarNode interface {
 }
 
 type BaseNode struct {
+	Path    string
 	Comment *CommentGroupNode
 	read    int
 }
@@ -216,6 +221,22 @@ func (n *BaseNode) clearLen() {
 
 func (n *BaseNode) addReadLen(len int) {
 	n.read += len
+}
+
+// GetPath returns YAMLPath for the current node.
+func (n *BaseNode) GetPath() string {
+	if n == nil {
+		return ""
+	}
+	return n.Path
+}
+
+// SetPath set YAMLPath for the current node.
+func (n *BaseNode) SetPath(path string) {
+	if n == nil {
+		return
+	}
+	n.Path = path
 }
 
 // GetComment returns comment token instance
@@ -772,11 +793,25 @@ func (n *StringNode) GetValue() interface{} {
 	return n.Value
 }
 
+// escapeSingleQuote escapes s to a single quoted scalar.
+// https://yaml.org/spec/1.2.2/#732-single-quoted-style
+func escapeSingleQuote(s string) string {
+	var sb strings.Builder
+	growLen := len(s) + // s includes also one ' from the doubled pair
+		2 + // opening and closing '
+		strings.Count(s, "'") // ' added by ReplaceAll
+	sb.Grow(growLen)
+	sb.WriteString("'")
+	sb.WriteString(strings.ReplaceAll(s, "'", "''"))
+	sb.WriteString("'")
+	return sb.String()
+}
+
 // String string value to text with quote or literal header if required
 func (n *StringNode) String() string {
 	switch n.Token.Type {
 	case token.SingleQuoteType:
-		quoted := fmt.Sprintf(`'%s'`, n.Value)
+		quoted := escapeSingleQuote(n.Value)
 		if n.Comment != nil {
 			return addCommentString(quoted, n.Comment)
 		}
@@ -1551,6 +1586,12 @@ func (n *SequenceNode) blockStyleString() string {
 		splittedValues := strings.Split(valueStr, "\n")
 		trimmedFirstValue := strings.TrimLeft(splittedValues[0], " ")
 		diffLength := len(splittedValues[0]) - len(trimmedFirstValue)
+		if len(splittedValues) > 1 && value.Type() == StringType || value.Type() == LiteralType {
+			// If multi-line string, the space characters for indent have already been added, so delete them.
+			for i := 1; i < len(splittedValues); i++ {
+				splittedValues[i] = strings.TrimLeft(splittedValues[i], " ")
+			}
+		}
 		newValues := []string{trimmedFirstValue}
 		for i := 1; i < len(splittedValues); i++ {
 			if len(splittedValues[i]) <= diffLength {
@@ -1916,40 +1957,68 @@ func Walk(v Visitor, node Node) {
 	switch n := node.(type) {
 	case *CommentNode:
 	case *NullNode:
+		walkComment(v, n.BaseNode)
 	case *IntegerNode:
+		walkComment(v, n.BaseNode)
 	case *FloatNode:
+		walkComment(v, n.BaseNode)
 	case *StringNode:
+		walkComment(v, n.BaseNode)
 	case *MergeKeyNode:
+		walkComment(v, n.BaseNode)
 	case *BoolNode:
+		walkComment(v, n.BaseNode)
 	case *InfinityNode:
+		walkComment(v, n.BaseNode)
 	case *NanNode:
+		walkComment(v, n.BaseNode)
 	case *LiteralNode:
+		walkComment(v, n.BaseNode)
 		Walk(v, n.Value)
 	case *DirectiveNode:
+		walkComment(v, n.BaseNode)
 		Walk(v, n.Value)
 	case *TagNode:
+		walkComment(v, n.BaseNode)
 		Walk(v, n.Value)
 	case *DocumentNode:
+		walkComment(v, n.BaseNode)
 		Walk(v, n.Body)
 	case *MappingNode:
+		walkComment(v, n.BaseNode)
 		for _, value := range n.Values {
 			Walk(v, value)
 		}
 	case *MappingKeyNode:
+		walkComment(v, n.BaseNode)
 		Walk(v, n.Value)
 	case *MappingValueNode:
+		walkComment(v, n.BaseNode)
 		Walk(v, n.Key)
 		Walk(v, n.Value)
 	case *SequenceNode:
+		walkComment(v, n.BaseNode)
 		for _, value := range n.Values {
 			Walk(v, value)
 		}
 	case *AnchorNode:
+		walkComment(v, n.BaseNode)
 		Walk(v, n.Name)
 		Walk(v, n.Value)
 	case *AliasNode:
+		walkComment(v, n.BaseNode)
 		Walk(v, n.Value)
 	}
+}
+
+func walkComment(v Visitor, base *BaseNode) {
+	if base == nil {
+		return
+	}
+	if base.Comment == nil {
+		return
+	}
+	Walk(v, base.Comment)
 }
 
 type filterWalker struct {

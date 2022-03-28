@@ -1,7 +1,7 @@
 # YAML support for the Go language
 
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/goccy/go-yaml)](https://pkg.go.dev/github.com/goccy/go-yaml)
-[![CircleCI](https://circleci.com/gh/goccy/go-yaml.svg?style=shield)](https://circleci.com/gh/goccy/go-yaml)
+![Go](https://github.com/goccy/go-yaml/workflows/Go/badge.svg)
 [![codecov](https://codecov.io/gh/goccy/go-yaml/branch/master/graph/badge.svg)](https://codecov.io/gh/goccy/go-yaml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/goccy/go-yaml)](https://goreportcard.com/report/github.com/goccy/go-yaml)
 
@@ -375,7 +375,7 @@ output result is the following:
 
 # Tools
 
-## ycat 
+## ycat
 
 print yaml file with color
 
@@ -384,8 +384,12 @@ print yaml file with color
 ### Installation
 
 ```sh
-go get -u github.com/goccy/go-yaml/cmd/ycat
+go install github.com/goccy/go-yaml/cmd/ycat@latest
 ```
+
+# Looking for Sponsors
+
+I'm looking for sponsors this library. This library is being developed as a personal project in my spare time. If you want a quick response or problem resolution when using this library in your project, please register as a [sponsor](https://github.com/sponsors/goccy). I will cooperate as much as possible. Of course, this library is developed as an MIT license, so you can use it freely for free.
 
 # License
 
